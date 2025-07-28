@@ -18,7 +18,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
       home: const MyHomePage(),
     );
   }
@@ -41,7 +43,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
     late final PlatformWebViewControllerCreationParams params;
     params = const PlatformWebViewControllerCreationParams();
-    final WebViewController controller = WebViewController.fromPlatformCreationParams(params);
+    final WebViewController controller =
+        WebViewController.fromPlatformCreationParams(params);
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -57,7 +60,8 @@ class _MyHomePageState extends State<MyHomePage> {
               final uri = Uri.parse(url);
               final terminalName = uri.queryParameters['terminal_id'];
               final terminalIp = uri.queryParameters['terminal_ip'];
-              final amount = int.tryParse(uri.queryParameters['amount'] ?? '0') ?? 0;
+              final amount =
+                  int.tryParse(uri.queryParameters['amount'] ?? '0') ?? 0;
 
               if (terminalName != null && terminalIp != null && amount > 0) {
                 _posRequestSent = true;
@@ -72,7 +76,9 @@ class _MyHomePageState extends State<MyHomePage> {
             }
           },
           onWebResourceError: (WebResourceError error) {
-            print("❌ Web resource error: ${error.errorType} - ${error.description}");
+            print(
+              "❌ Web resource error: ${error.errorType} - ${error.description}",
+            );
           },
           onPageFinished: (String url) {
             debugPrint('Page finished loading: $url');
@@ -89,7 +95,9 @@ class _MyHomePageState extends State<MyHomePage> {
       ..addJavaScriptChannel(
         'Toaster',
         onMessageReceived: (JavaScriptMessage message) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.message)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message.message)));
         },
       )
       ..clearCache()
@@ -104,9 +112,32 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-Future<void> sendTcpToPos(WebViewController controller, String terminalIp, String terminalName, int amount) async {
+Future<void> sendTcpToPos(
+  WebViewController controller,
+  String terminalIp,
+  String terminalName,
+  int amount,
+) async {
   final terminalPort = 6666;
-  final payload = [terminalName, '010', '', amount.toString(), '', '', '', '', 'HR', '', '', '', '', '', '', '', ''].join('|');
+  final payload = [
+    terminalName,
+    '010',
+    '',
+    amount.toString(),
+    '',
+    '',
+    '',
+    '',
+    'HR',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+  ].join('|');
   final messageBytes = buildEcrMessage(payload);
 
   developer.log('🔼 Sending payload: $payload');
@@ -115,7 +146,11 @@ Future<void> sendTcpToPos(WebViewController controller, String terminalIp, Strin
   Socket? socket;
 
   try {
-    socket = await Socket.connect(terminalIp, terminalPort, timeout: Duration(seconds: 5));
+    socket = await Socket.connect(
+      terminalIp,
+      terminalPort,
+      timeout: Duration(seconds: 5),
+    );
     socket.add(messageBytes);
     await socket.flush();
 
@@ -133,7 +168,10 @@ Future<void> sendTcpToPos(WebViewController controller, String terminalIp, Strin
       }
     }
 
-    final messages = response.split('\u0003\n').where((m) => m.isNotEmpty).toList();
+    final messages = response
+        .split('\u0003\n')
+        .where((m) => m.isNotEmpty)
+        .toList();
     final transactionMessage = messages
         .map((m) => m.replaceAll('\u0002', '').replaceAll('\u0003', '').trim())
         .firstWhere((msg) => msg.startsWith('010|'), orElse: () => '');
@@ -155,8 +193,19 @@ Future<void> sendTcpToPos(WebViewController controller, String terminalIp, Strin
   }
 }
 
-Future<void> handlePosResponse(String response, String terminalIp, String terminalName, int amount, WebViewController controller) async {
-  final rawMessages = response.split('\u0003\n').where((m) => m.isNotEmpty).toList();
+Future<void> handlePosResponse(
+  String response,
+  String terminalIp,
+  String terminalName,
+  int amount,
+  WebViewController controller,
+) async {
+  final rawMessages = response
+      .split('\u0003\n')
+      .where((m) => m.isNotEmpty)
+      .toList();
+
+  // 1 = approved, 0 = rejected
   final statusMap = {
     'transaction approved': 1,
     'Do not honor': 0,
@@ -171,7 +220,11 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
   developer.log('🔍 Raw POS message count: ${rawMessages.length}');
 
   for (final rawMsg in rawMessages) {
-    final cleanMsg = rawMsg.replaceAll('\u0002', '').replaceAll('\u0003', '').replaceAll('\n', '').trim();
+    final cleanMsg = rawMsg
+        .replaceAll('\u0002', '')
+        .replaceAll('\u0003', '')
+        .replaceAll('\n', '')
+        .trim();
 
     developer.log('🧪 Checking POS message: $cleanMsg');
 
@@ -183,7 +236,12 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
       if (invoiceNumber != null) {
         developer.log('📄 Invoice number (waiting): $invoiceNumber');
         developer.log('🚫 Reject');
-        await sendRejectOrConfirmToPos(terminalIp, terminalName, int.parse(invoiceNumber), 0);
+        await sendRejectOrConfirmToPos(
+          terminalIp,
+          terminalName,
+          int.parse(invoiceNumber),
+          0,
+        );
 
         // Delay to allow POS to reset
         await Future.delayed(Duration(seconds: 1));
@@ -191,7 +249,9 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
         // Retry payment
         await sendTcpToPos(controller, terminalIp, terminalName, amount);
       } else {
-        developer.log('❌ Could not extract invoice number from CONFIRM message.');
+        developer.log(
+          '❌ Could not extract invoice number from CONFIRM message.',
+        );
       }
       return;
     }
@@ -206,7 +266,12 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
           if (fields.length > 8) {
             final invoiceNumber = fields[7];
             developer.log('📄 Invoice number: $invoiceNumber');
-            await sendRejectOrConfirmToPos(terminalIp, terminalName, int.tryParse(invoiceNumber) ?? 0, entry.value);
+            await sendRejectOrConfirmToPos(
+              terminalIp,
+              terminalName,
+              int.tryParse(invoiceNumber) ?? 0,
+              entry.value,
+            );
           } else {
             developer.log('⚠️ 010| message found but invoice field is missing');
           }
@@ -224,10 +289,13 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
   developer.log('❌ No transaction message was recognized.');
 
   final userDidNotRespond = rawMessages.any(
-    (msg) => msg.contains('Waiting for user input') || msg.contains('|062|') || msg.contains('001|') && msg.contains('|1|Processing'),
+    (msg) =>
+        msg.contains('Waiting for user input') ||
+        msg.contains('|062|') ||
+        msg.contains('001|') && msg.contains('|1|Processing'),
   );
 
-  // Ako je prepoznat "tišina" scenarij, obavijesti web
+  // If "silence" scenario is detected, notify web
   if (userDidNotRespond) {
     final padded = List.filled(12, '', growable: false);
     padded[0] = '001'; // response type
@@ -237,11 +305,18 @@ Future<void> handlePosResponse(String response, String terminalIp, String termin
 
     final paddedResponse = padded.join('|');
     developer.log('📤 Sending padded fallback: $paddedResponse');
-    await controller.runJavaScript("window.postMessage('$paddedResponse', '*');");
+    await controller.runJavaScript(
+      "window.postMessage('$paddedResponse', '*');",
+    );
   }
 }
 
-Future<void> sendRejectOrConfirmToPos(String terminalIp, String terminalName, int invoiceNumber, int confirmFlag) async {
+Future<void> sendRejectOrConfirmToPos(
+  String terminalIp,
+  String terminalName,
+  int invoiceNumber,
+  int confirmFlag,
+) async {
   final terminalPort = 6666;
   final payload = [terminalName, '030', invoiceNumber, confirmFlag].join('|');
   final messageBytes = buildEcrMessage(payload);
@@ -267,7 +342,11 @@ Future<void> sendRejectOrConfirmToPos(String terminalIp, String terminalName, in
   }
 
   try {
-    socket = await Socket.connect(terminalIp, terminalPort, timeout: Duration(seconds: 5));
+    socket = await Socket.connect(
+      terminalIp,
+      terminalPort,
+      timeout: Duration(seconds: 5),
+    );
     socket.add(messageBytes);
     await socket.flush();
 
@@ -298,8 +377,10 @@ Future<void> sendRejectOrConfirmToPos(String terminalIp, String terminalName, in
 
           developer.log('📥 POS confirm sub-response: $payload');
 
-          // Ako želiš završiti ranije ako vidiš određenu frazu:
-          if (payload.contains('transaction approved') || payload.contains('RECEIPT') || payload.contains('end of response')) {
+          // If you want to finish early if you see a specific phrase:
+          if (payload.contains('transaction approved') ||
+              payload.contains('RECEIPT') ||
+              payload.contains('end of response')) {
             maybeFinish();
             return;
           }
@@ -335,7 +416,10 @@ List<int> buildEcrMessage(String payload) {
   return [stx, ...payloadBytes, etx, nl];
 }
 
-Future<String> readAllEcrResponses(Socket socket, {Duration timeout = const Duration(seconds: 10)}) async {
+Future<String> readAllEcrResponses(
+  Socket socket, {
+  Duration timeout = const Duration(seconds: 10),
+}) async {
   final completer = Completer<String>();
   final buffer = <int>[];
   final responses = <String>[];
@@ -379,7 +463,8 @@ Future<String> readAllEcrResponses(Socket socket, {Duration timeout = const Dura
         developer.log('🔼 POS response: $payload');
 
         // end early if specific keywords seen
-        if (payload.contains('transaction approved') || payload.contains('Waiting CONFIRM')) {
+        if (payload.contains('transaction approved') ||
+            payload.contains('Waiting CONFIRM')) {
           maybeFinish();
           return;
         }
